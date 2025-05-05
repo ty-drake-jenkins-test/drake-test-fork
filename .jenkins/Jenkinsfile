@@ -39,10 +39,10 @@ def getNodeLabel() {
 def checkout(String drakeSha = "master", String ciSha = "main") {
   def scmVars = null
   retry(4) {
-    scmVars = checkout([$class: 'GitSCM', branches: [[name: '${drakeSha}']], extensions: [[$class: 'AuthorInChangelog'], [$class: 'CloneOption', honorRefspec: true, noTags: true], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'LocalBranch', localBranch: 'master']], userRemoteConfigs: [[credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0', name: 'origin', refspec: '+refs/heads/master:refs/remotes/origin/master', url: 'git@github.com:RobotLocomotion/drake.git']]])
+    scmVars = checkout([$class: 'GitSCM', branches: [[name: "${drakeSha}"]], extensions: [[$class: 'AuthorInChangelog'], [$class: 'CloneOption', honorRefspec: true, noTags: true], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'LocalBranch', localBranch: 'master']], userRemoteConfigs: [[credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0', name: 'origin', refspec: '+refs/heads/master:refs/remotes/origin/master', url: 'git@github.com:RobotLocomotion/drake.git']]])
   }
   retry(4) {
-    checkout([$class: 'GitSCM', branches: [[name: '${ciSha}']], extensions: [[$class: 'AuthorInChangelog'], [$class: 'CloneOption', honorRefspec: true, noTags: true], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'ci'], [$class: 'LocalBranch', localBranch: 'main']], userRemoteConfigs: [[credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0', name: 'origin', refspec: '+refs/heads/main:refs/remotes/origin/main', url: 'git@github.com:RobotLocomotion/drake-ci.git']]])
+    checkout([$class: 'GitSCM', branches: [[name: "${ciSha}"]], extensions: [[$class: 'AuthorInChangelog'], [$class: 'CloneOption', honorRefspec: true, noTags: true], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'ci'], [$class: 'LocalBranch', localBranch: 'main']], userRemoteConfigs: [[credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0', name: 'origin', refspec: '+refs/heads/main:refs/remotes/origin/main', url: 'git@github.com:RobotLocomotion/drake-ci.git']]])
   }
   return scmVars
 }
