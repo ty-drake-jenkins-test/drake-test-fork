@@ -11,7 +11,9 @@ node(getNodeLabel()) {
           } finally {
             try {
               addCDashBadge()
-              emailFailureResults()
+              if ("${env.JOB_NAME}".contains("continuous") || "${env.JOB_NAME}".contains("nightly")) {
+                emailFailureResults()
+              }
             } finally {
               cleanWorkspace()
             }
@@ -34,18 +36,18 @@ def getNodeLabel() {
   }
 }
 
-def checkout(drakeSha = "master", ciSha = "main") {
-  def scm_vars = null
+def checkout(String drakeSha = "master", String ciSha = "main") {
+  def scmVars = null
   retry(4) {
-    scm_vars = checkout([$class: 'GitSCM', branches: [[name: '${drakeSha}']], extensions: [[$class: 'AuthorInChangelog'], [$class: 'CloneOption', honorRefspec: true, noTags: true], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'LocalBranch', localBranch: 'master']], userRemoteConfigs: [[credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0', name: 'origin', refspec: '+refs/heads/master:refs/remotes/origin/master', url: 'git@github.com:RobotLocomotion/drake.git']]])
+    scmVars = checkout([$class: 'GitSCM', branches: [[name: '${drakeSha}']], extensions: [[$class: 'AuthorInChangelog'], [$class: 'CloneOption', honorRefspec: true, noTags: true], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'LocalBranch', localBranch: 'master']], userRemoteConfigs: [[credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0', name: 'origin', refspec: '+refs/heads/master:refs/remotes/origin/master', url: 'git@github.com:RobotLocomotion/drake.git']]])
   }
   retry(4) {
     checkout([$class: 'GitSCM', branches: [[name: '${ciSha}']], extensions: [[$class: 'AuthorInChangelog'], [$class: 'CloneOption', honorRefspec: true, noTags: true], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'ci'], [$class: 'LocalBranch', localBranch: 'main']], userRemoteConfigs: [[credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0', name: 'origin', refspec: '+refs/heads/main:refs/remotes/origin/main', url: 'git@github.com:RobotLocomotion/drake-ci.git']]])
   }
-  return scm_vars
+  return scmVars
 }
 
-def doBuild(scamVars) {
+def doBuild(Map scmVars) {
   withCredentials([
     sshUserPrivateKey(credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0', keyFileVariable: 'SSH_PRIVATE_KEY_FILE'),
     string(credentialsId: 'e21b9517-8aa7-419e-8f25-19cd42e10f68', variable: 'DOCKER_USERNAME'),
