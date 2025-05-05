@@ -16,7 +16,7 @@ properties([
 
 // Define the main pipeline.
 node(getNodeLabel()) {
-  // We'll use our own checkout step below, since we have 
+  // We'll use our own checkout step below, since we have
   // multiple repositories with a particular directory layout.
   skipDefaultCheckout()
 
@@ -25,22 +25,23 @@ node(getNodeLabel()) {
       ansiColor('xterm') {
         timestamps {
           try {
-            if ("${env.JOB_NAME}".contains("continuous") || 
+            def scmVars = null
+            if ("${env.JOB_NAME}".contains("continuous") ||
               "${env.JOB_NAME}".contains("nightly")) {
               // Ignore the branch parameters for production builds,
               // always use master/main.
-              def scmVars = checkout()
+              scmVars = checkout()
             }
             else {
               // Use the branch parameters, but still default to master/main.
-              def scmVars = checkout("${params.drakeSha}", "${params.ciSha}")
+              scmVars = checkout("${params.drakeSha}", "${params.ciSha}")
             }
             doBuild(scmVars)
           } finally {
             try {
               addCDashBadge()
               // Only send failure emails for production builds.
-              if ("${env.JOB_NAME}".contains("continuous") || 
+              if ("${env.JOB_NAME}".contains("continuous") ||
                 "${env.JOB_NAME}".contains("nightly")) {
                 emailFailureResults()
               }
@@ -58,7 +59,7 @@ node(getNodeLabel()) {
 def getNodeLabel() {
   def pattern = ~/^((linux|mac-arm)-[a-z]+(?:-unprovisioned)?)/
   def match = "${env.JOB_NAME}" =~ pattern
-  
+
   if (match.find()) {
     return match.group(1)
   }
@@ -73,7 +74,7 @@ def getNodeLabel() {
 // in the parameters above.
 // Within the workspace, drake is cloned into `src` and
 // drake-ci is cloned into `ci`.
-def checkout(String drakeSha = "master", String ciSha = "main") {
+def checkout(String drakeSha = 'master', String ciSha = 'main') {
   def scmVars = null
   retry(4) {
     scmVars = checkout([$class: 'GitSCM',
