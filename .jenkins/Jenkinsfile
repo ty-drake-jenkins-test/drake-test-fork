@@ -1,16 +1,44 @@
-// The main pipeline.
+// Parameters
+// Use only from the Jenkins UI if you want to specify a custom branch of drake or drake-ci.
+properties([
+    parameters([
+        string(name: 'drakeSha', defaultValue: 'master',
+          description: 'Commit SHA or branch name. ' \
+            'For pull requests, enter branch name <code>pr/1234/head</code> ' \
+            'or <code>pr/1234/merge</code> for pull request #1234. ' \
+            'Defaults to <code>master</code>.'),
+        choice(name: 'ciSha', defaultValue: 'main',
+          description: 'Commit SHA or branch name. ' \
+            'For pull requests, enter branch name <code>pr/1234/head</code> ' \
+            'or <code>pr/1234/merge</code> for pull request #1234. ' \
+            'Defaults to <code>main</code>.'),
+    ])
+])
+
+// Defines the main pipeline.
 node(getNodeLabel()) {
-  skipDefaultCheckout() // I hope this works!
+  // We'll use our own checkout step below, since we have 
+  // multiple repositories with a particular directory layout.
+  skipDefaultCheckout()
+
   stage('test') {
     timeout(600) {
       ansiColor('xterm') {
         timestamps {
           try {
-            def scmVars = checkout() // see above!
+            if ("${env.JOB_NAME}".contains("continuous") || "${env.JOB_NAME}".contains("nightly")) {
+              // Ignore the branch parameters for production builds, always use master/main.
+              def scmVars = checkout()
+            }
+            else {
+              // Use the branch parameters, but still default to master/main.
+              def scmVars = checkout("${params.drakeSha}", "${params.ciSha}")
+            }
             doBuild(scmVars)
           } finally {
             try {
               addCDashBadge()
+              // Only send failure emails for production builds.
               if ("${env.JOB_NAME}".contains("continuous") || "${env.JOB_NAME}".contains("nightly")) {
                 emailFailureResults()
               }
@@ -24,6 +52,7 @@ node(getNodeLabel()) {
   }
 }
 
+// Returns the node label from the job name.
 def getNodeLabel() {
   def pattern = ~/^((linux|mac-arm)-[a-z]+(?:-unprovisioned)?)/
   def match = "${env.JOB_NAME}" =~ pattern
@@ -36,6 +65,12 @@ def getNodeLabel() {
   }
 }
 
+// Performs the checkout step for drake and drake-ci.
+// By default, uses drake/master and drake-ci/main,
+// but can use any commit sha or PR number as specified
+// in the parameters above.
+// Within the workspace, drake is cloned into `src` and
+// drake-ci is cloned into `ci`.
 def checkout(String drakeSha = "master", String ciSha = "main") {
   def scmVars = null
   retry(4) {
@@ -47,6 +82,7 @@ def checkout(String drakeSha = "master", String ciSha = "main") {
   return scmVars
 }
 
+// Performs the main build step by calling into a drake-ci script.
 def doBuild(Map scmVars) {
   withCredentials([
     sshUserPrivateKey(credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0', keyFileVariable: 'SSH_PRIVATE_KEY_FILE'),
@@ -59,6 +95,7 @@ def doBuild(Map scmVars) {
   }
 }
 
+// Sends an email to Drake developers when a build fails or is unstable.
 def emailFailureResults() {
   if (fileExists('RESULT')) {
     currentBuild.result = readFile 'RESULT'
@@ -76,6 +113,7 @@ def emailFailureResults() {
   }
 }
 
+// Provides links to the results of the build via CDash.
 def addCDashBadge() {
   if (fileExists('CDASH')) {
     def cDashUrl = readFile 'CDASH'
@@ -84,8 +122,11 @@ def addCDashBadge() {
   }
 }
 
+// Deletes the workspace and tmp directories, for use at the end of a build.
 def cleanWorkspace() {
-  deleteDir()
+  dir("${env.WORKSPACE}") {
+    deleteDir()
+  }
   dir("${env.WORKSPACE}@tmp") {
     deleteDir()
   }
