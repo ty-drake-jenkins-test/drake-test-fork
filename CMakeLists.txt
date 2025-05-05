@@ -28,6 +28,8 @@ list(INSERT CMAKE_MODULE_PATH 0 "${PROJECT_SOURCE_DIR}/cmake/modules")
 
 include(CTest)
 
+set(DUMMY_VAR2 ON)
+
 configure_file(CTestCustom.cmake.in CTestCustom.cmake @ONLY)
 
 if(ANDROID OR CYGWIN OR IOS OR NOT UNIX)
