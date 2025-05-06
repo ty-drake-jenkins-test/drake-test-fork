@@ -20,9 +20,6 @@ node(getNodeLabel()) {
   // multiple repositories with a particular directory layout.
   skipDefaultCheckout()
 
-  // Report to GitHub that we've started.
-  setBuildStatusPending()
-
   stage('test') {
     timeout(600) {
       ansiColor('xterm') {
@@ -48,7 +45,6 @@ node(getNodeLabel()) {
                 emailFailureResults()
               }
             } finally {
-              reportEndBuildStatus()
               cleanWorkspace()
             }
           }
@@ -187,27 +183,4 @@ def reportEndBuildStatus() {
         break
     }
   }
-}
-
-def setBuildStatusPending() {
-  step([
-    $class: "GitHubSetCommitStatusBuilder",
-    contextSource: [$class: "DefaultCommitContextSource"],
-    statusMessage: "${env.JOB_NAME} started"
-  ])
-}
-
-// Sets the build status to report back to GitHub.
-// https://www.jenkins.io/doc/pipeline/steps/github/
-def setBuildStatus(String message, String state) {
-  // def repoUrl = scm.getUserRemoteConfigs()[0].getUrl()
-  step([
-    $class: "GitHubCommitStatusSetter",
-    // reposSource: [$class: "ManuallyEnteredRepositorySource", url: "https://github.com/ty-drake-jenkins-test/drake/"],
-    contextSource: [$class: "DefaultCommitContextSource"],
-    // contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "${env.JOB_NAME}"],
-    // commitShaSource: [$class: "ManuallyEnteredShaSource", sha: "${params.drakeSha}"],
-    // errorHandlers: [[$class: "ChangingBuildStatusErrorHandler", result: "UNSTABLE"]],
-    statusResultSource: [ $class: "ConditionalStatusResultSource", results: [[$class: "AnyBuildResult", message: message, state: state]] ]
-  ])
 }
