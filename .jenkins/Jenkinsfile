@@ -21,7 +21,7 @@ node(getNodeLabel()) {
   skipDefaultCheckout()
 
   // Report to GitHub that we've started.
-  setBuildStatus("${env.JOB_NAME} started", 'STARTED')
+  setBuildStatus("${env.JOB_NAME} started", 'PENDING')
 
   stage('test') {
     timeout(600) {
