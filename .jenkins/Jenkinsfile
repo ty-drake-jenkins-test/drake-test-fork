@@ -16,9 +16,12 @@ properties([
 
 // Define the main pipeline.
 node(getNodeLabel()) {
-  // We'll use our own checkout step below, since we have
+  // Use a custom checkout step below, since there are
   // multiple repositories with a particular directory layout.
   skipDefaultCheckout()
+
+  // Report to GitHub that we've started.
+  setBuildStatus("${env.JOB_NAME} started", 'STARTED')
 
   stage('test') {
     timeout(600) {
@@ -26,8 +29,7 @@ node(getNodeLabel()) {
         timestamps {
           try {
             def scmVars = null
-            if ("${env.JOB_NAME}".contains("continuous") ||
-              "${env.JOB_NAME}".contains("nightly")) {
+            if (isProduction()) {
               // Ignore the branch parameters for production builds,
               // always use master/main.
               scmVars = checkout()
@@ -36,16 +38,17 @@ node(getNodeLabel()) {
               // Use the branch parameters, but still default to master/main.
               scmVars = checkout("${params.drakeSha}", "${params.ciSha}")
             }
-            doBuild(scmVars)
+            // Commented now for quick testing.
+            // doBuild(scmVars)
           } finally {
             try {
               addCDashBadge()
               // Only send failure emails for production builds.
-              if ("${env.JOB_NAME}".contains("continuous") ||
-                "${env.JOB_NAME}".contains("nightly")) {
+              if (isProduction()) {
                 emailFailureResults()
               }
             } finally {
+              reportEndBuildStatus()
               cleanWorkspace()
             }
           }
@@ -66,6 +69,12 @@ def getNodeLabel() {
   else {
     return null
   }
+}
+
+// Returns true if this job is continuous or nightly.
+def isProduction() {
+  return ("${env.JOB_NAME}".contains("continuous") ||
+    "${env.JOB_NAME}".contains("nightly"))
 }
 
 // Performs the checkout step for drake and drake-ci.
@@ -125,18 +134,18 @@ def doBuild(Map scmVars) {
 def emailFailureResults() {
   if (fileExists('RESULT')) {
     currentBuild.result = readFile 'RESULT'
-  }
-  if (currentBuild.result == 'FAILURE' || currentBuild.result == 'UNSTABLE') {
-    def subject = 'Build failed in Jenkins'
-    if (currentBuild.result == 'UNSTABLE') {
-      subject = 'Jenkins build is unstable'
+    if (currentBuild.result == 'FAILURE' || currentBuild.result == 'UNSTABLE') {
+      def subject = 'Build failed in Jenkins'
+      if (currentBuild.result == 'UNSTABLE') {
+        subject = 'Jenkins build is unstable'
+      }
+      emailext (
+        subject: "${subject}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+        body: "See <${env.BUILD_URL}display/redirect?page=changes> " +
+          "and <${env.BUILD_URL}changes>",
+        to: '$DEFAULT_RECIPIENTS',
+      )
     }
-    emailext (
-      subject: "${subject}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-      body: "See <${env.BUILD_URL}display/redirect?page=changes> " +
-        "and <${env.BUILD_URL}changes>",
-      to: '$DEFAULT_RECIPIENTS',
-    )
   }
 }
 
@@ -159,4 +168,36 @@ def cleanWorkspace() {
   dir("${env.WORKSPACE}@tmp") {
     deleteDir()
   }
+}
+
+// Checks the result of the build to determine the build status.
+def reportEndBuildStatus() {
+  if (fileExists('RESULT')) {
+    currentBuild.result = readFile 'RESULT'
+    switch(currentBuild.result) {
+      case 'SUCCESS':
+        setBuildStatus("${env.JOB_NAME} succeeded", 'SUCCESS')
+        break
+      case 'FAILURE':
+      case 'UNSTABLE':
+        setBuildStatus("${env.JOB_NAME} failed", 'FAILURE')
+        break
+      case 'ERROR':
+        setBuildStatus("${env.JOB_NAME} errored", 'ERROR')
+        break
+    }
+  }
+}
+
+// Sets the build status to report back to GitHub.
+def setBuildStatus(String message, String state) {
+  def repoUrl = scm.getUserRemoteConfigs()[0].getUrl()
+  step([
+    $class: "GitHubCommitStatusSetter",
+    reposSource: [$class: "ManuallyEnteredRepositorySource", url: "${repoUrl}}"],
+    contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "${env.JOB_NAME}"],
+    // commitShaSource: [$class: "ManuallyEnteredShaSource", sha: "${params.drakeSha}"],
+    errorHandlers: [[$class: "ChangingBuildStatusErrorHandler", result: "UNSTABLE"]],
+    statusResultSource: [ $class: "ConditionalStatusResultSource", results: [[$class: "AnyBuildResult", message: message, state: state]] ]
+  ])
 }
