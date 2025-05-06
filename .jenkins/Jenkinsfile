@@ -191,10 +191,10 @@ def reportEndBuildStatus() {
 
 // Sets the build status to report back to GitHub.
 def setBuildStatus(String message, String state) {
-  def repoUrl = scm.getUserRemoteConfigs()[0].getUrl()
+  // def repoUrl = scm.getUserRemoteConfigs()[0].getUrl()
   step([
     $class: "GitHubCommitStatusSetter",
-    reposSource: [$class: "ManuallyEnteredRepositorySource", url: "${repoUrl}"],
+    reposSource: [$class: "ManuallyEnteredRepositorySource", url: "https://github.com/ty-drake-jenkins-test/drake/"],
     contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "${env.JOB_NAME}"],
     // commitShaSource: [$class: "ManuallyEnteredShaSource", sha: "${params.drakeSha}"],
     errorHandlers: [[$class: "ChangingBuildStatusErrorHandler", result: "UNSTABLE"]],
