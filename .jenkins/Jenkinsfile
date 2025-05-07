@@ -20,14 +20,14 @@ node(getNodeLabel()) {
   // multiple repositories with a particular directory layout.
   skipDefaultCheckout()
 
-  // Report to GitHub that we've started.
-  setBuildStatusPending()
-
   stage('test') {
     timeout(600) {
       ansiColor('xterm') {
         timestamps {
           try {
+            // Report to GitHub that we've started.
+            setBuildStatusPending()
+
             def scmVars = null
             if (isProduction()) {
               // Ignore the branch parameters for production builds,
@@ -193,7 +193,7 @@ def reportEndBuildStatus() {
 def setBuildStatusPending() {
   step([
     $class: "GitHubSetCommitStatusBuilder",
-    contextSource: [$class: "DefaultCommitContextSource"],
+    contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "${env.JOB_NAME}"],
     statusMessage: [content: "${env.JOB_NAME} started"]
   ])
 }
