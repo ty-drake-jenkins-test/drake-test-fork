@@ -45,10 +45,11 @@ node(getNodeLabel()) {
               // TODO(tyler-yankee): Remove this later.
               writeFile(file: "RESULT", text: "FAILURE")
               addCDashBadge()
+              // TODO(tyler-yankee): Add this back later.
               // Only send failure emails for production builds.
-              if (isProduction()) {
-                emailFailureResults()
-              }
+              // if (isProduction()) {
+              emailFailureResults()
+              // }
             } finally {
               reportEndBuildStatus()
               cleanWorkspace()
@@ -98,7 +99,8 @@ def checkout(String drakeSha = 'master', String ciSha = 'main') {
         credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0',
         name: 'origin',
         refspec: '+refs/heads/master:refs/remotes/origin/master',
-        url: 'git@github.com:RobotLocomotion/drake.git']]])
+        // TODO(tyler-yankee): Replace this with the actual Drake when done testing.
+        url: 'git@github.com:ty-drake-jenkins-test/drake.git']]])
   }
   retry(4) {
     checkout([$class: 'GitSCM',
@@ -174,30 +176,37 @@ def cleanWorkspace() {
   }
 }
 
+// Returns the job name only, without the PR number.
+def getJustJobName() {
+  return "${env.JOB_NAME}".split('/')[0]
+}
+
 // Checks the result of the build to determine the build status.
 def reportEndBuildStatus() {
   if (fileExists('RESULT')) {
     currentBuild.result = readFile 'RESULT'
+    def jobName = getJustJobName()
     switch(currentBuild.result) {
       case 'SUCCESS':
-        setBuildStatus("${env.JOB_NAME} succeeded", 'SUCCESS')
+        setBuildStatus("${jobName} succeeded", 'SUCCESS')
         break
       case 'FAILURE':
       case 'UNSTABLE':
-        setBuildStatus("${env.JOB_NAME} failed", 'FAILURE')
+        setBuildStatus("${jobName} failed", 'FAILURE')
         break
       case 'ERROR':
-        setBuildStatus("${env.JOB_NAME} errored", 'ERROR')
+        setBuildStatus("${jobName} errored", 'ERROR')
         break
     }
   }
 }
 
 def setBuildStatusPending() {
+  def jobName = getJustJobName()
   step([
     $class: "GitHubSetCommitStatusBuilder",
-    contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "${env.JOB_NAME}"],
-    statusMessage: [content: "${env.JOB_NAME} started"]
+    contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "${jobName}" ],
+    statusMessage: [content: "${jobName} started"]
   ])
 }
 
@@ -206,6 +215,7 @@ def setBuildStatusPending() {
 def setBuildStatus(String message, String state) {
   def repoUrl = scm.getUserRemoteConfigs()[0].getUrl()
   def commitSha = null
+  def jobName = getJustJobName()
   dir("${env.WORKSPACE}/src") {
     commitSha = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
   }
@@ -213,7 +223,7 @@ def setBuildStatus(String message, String state) {
     $class: "GitHubCommitStatusSetter",
     reposSource: [$class: "ManuallyEnteredRepositorySource", url: "${repoUrl}"],
     commitShaSource: [$class: "ManuallyEnteredShaSource", sha: "${commitSha}"],
-    contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "${env.JOB_NAME}"],
+    contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "${jobName}"],
     // errorHandlers: [[$class: "ChangingBuildStatusErrorHandler", result: "UNSTABLE"]],
     statusResultSource: [ $class: "ConditionalStatusResultSource", results: [[$class: "AnyBuildResult", message: message, state: state]] ]
   ])
