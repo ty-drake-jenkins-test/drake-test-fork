@@ -25,9 +25,6 @@ node(getNodeLabel()) {
       ansiColor('xterm') {
         timestamps {
           try {
-            // Report to GitHub that we've started.
-            setBuildStatusPending()
-
             def scmVars = null
             if (isProduction()) {
               // Ignore the branch parameters for production builds,
@@ -45,13 +42,11 @@ node(getNodeLabel()) {
               // TODO(tyler-yankee): Remove this later.
               writeFile(file: "RESULT", text: "FAILURE")
               addCDashBadge()
-              // TODO(tyler-yankee): Add this back later.
               // Only send failure emails for production builds.
-              // if (isProduction()) {
-              emailFailureResults()
-              // }
+              if (isProduction()) {
+                emailFailureResults()
+              }
             } finally {
-              reportEndBuildStatus()
               cleanWorkspace()
             }
           }
@@ -174,57 +169,4 @@ def cleanWorkspace() {
   dir("${env.WORKSPACE}@tmp") {
     deleteDir()
   }
-}
-
-// Returns the job name only, without the PR number.
-def getJustJobName() {
-  return "${env.JOB_NAME}".split('/')[0]
-}
-
-// Checks the result of the build to determine the build status.
-def reportEndBuildStatus() {
-  if (fileExists('RESULT')) {
-    currentBuild.result = readFile 'RESULT'
-    def jobName = getJustJobName()
-    switch(currentBuild.result) {
-      case 'SUCCESS':
-        setBuildStatus("${jobName} succeeded", 'SUCCESS')
-        break
-      case 'FAILURE':
-      case 'UNSTABLE':
-        setBuildStatus("${jobName} failed", 'FAILURE')
-        break
-      case 'ERROR':
-        setBuildStatus("${jobName} errored", 'ERROR')
-        break
-    }
-  }
-}
-
-def setBuildStatusPending() {
-  def jobName = getJustJobName()
-  step([
-    $class: "GitHubSetCommitStatusBuilder",
-    contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "${jobName}" ],
-    statusMessage: [content: "${jobName} started"]
-  ])
-}
-
-// Sets the build status to report back to GitHub.
-// https://www.jenkins.io/doc/pipeline/steps/github/
-def setBuildStatus(String message, String state) {
-  def repoUrl = scm.getUserRemoteConfigs()[0].getUrl()
-  def commitSha = null
-  def jobName = getJustJobName()
-  dir("${env.WORKSPACE}/src") {
-    commitSha = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
-  }
-  step([
-    $class: "GitHubCommitStatusSetter",
-    reposSource: [$class: "ManuallyEnteredRepositorySource", url: "${repoUrl}"],
-    commitShaSource: [$class: "ManuallyEnteredShaSource", sha: "${commitSha}"],
-    contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "${jobName}"],
-    // errorHandlers: [[$class: "ChangingBuildStatusErrorHandler", result: "UNSTABLE"]],
-    statusResultSource: [ $class: "ConditionalStatusResultSource", results: [[$class: "AnyBuildResult", message: message, state: state]] ]
-  ])
 }
