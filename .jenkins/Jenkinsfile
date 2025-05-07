@@ -45,7 +45,8 @@ node(getNodeLabel()) {
               addCDashBadge()
               // Only send failure emails for production builds.
               if (isProduction()) {
-                emailFailureResults()
+                // Commented out for now, but eventually needs to be tested.
+                // emailFailureResults()
               }
             } finally {
               reportEndBuildStatus()
@@ -193,20 +194,23 @@ def setBuildStatusPending() {
   step([
     $class: "GitHubSetCommitStatusBuilder",
     contextSource: [$class: "DefaultCommitContextSource"],
-    statusMessage: "${env.JOB_NAME} started"
+    statusMessage: [content: "${env.JOB_NAME} started"]
   ])
 }
 
 // Sets the build status to report back to GitHub.
 // https://www.jenkins.io/doc/pipeline/steps/github/
 def setBuildStatus(String message, String state) {
-  // def repoUrl = scm.getUserRemoteConfigs()[0].getUrl()
+  def repoUrl = scm.getUserRemoteConfigs()[0].getUrl()
+  def commitSha = null
+  dir("${env.WORKSPACE}/src") {
+    commitSha = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+  }
   step([
     $class: "GitHubCommitStatusSetter",
-    // reposSource: [$class: "ManuallyEnteredRepositorySource", url: "https://github.com/ty-drake-jenkins-test/drake/"],
-    contextSource: [$class: "DefaultCommitContextSource"],
-    // contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "${env.JOB_NAME}"],
-    // commitShaSource: [$class: "ManuallyEnteredShaSource", sha: "${params.drakeSha}"],
+    reposSource: [$class: "ManuallyEnteredRepositorySource", url: "${repoUrl}"],
+    commitShaSource: [$class: "ManuallyEnteredShaSource", sha: "${commitSha}"],
+    contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "${env.JOB_NAME}"],
     // errorHandlers: [[$class: "ChangingBuildStatusErrorHandler", result: "UNSTABLE"]],
     statusResultSource: [ $class: "ConditionalStatusResultSource", results: [[$class: "AnyBuildResult", message: message, state: state]] ]
   ])
