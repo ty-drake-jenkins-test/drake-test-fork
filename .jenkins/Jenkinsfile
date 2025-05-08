@@ -86,19 +86,22 @@ def isProduction() {
 def checkout(String drakeSha = 'master', String ciSha = 'main') {
   def scmVars = null
   retry(4) {
-    scmVars = checkout([
-      $class: 'GitSCM',
-      branches: [[name: "${env.CHANGE_BRANCH}"]],
-      extensions: [[$class: 'AuthorInChangelog'],
-        [$class: 'CloneOption', honorRefspec: true, noTags: true],
-        [$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'],
-        [$class: 'LocalBranch', localBranch: 'master']],
-      userRemoteConfigs: [[
-        credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0',
-        name: 'origin',
-        refspec: '+refs/heads/master:refs/remotes/origin/master',
-        // TODO(tyler-yankee): Replace this with the actual Drake when done testing.
-        url: 'git@github.com:ty-drake-jenkins-test/drake.git']]])
+    dir("${env.WORKSPACE}/src") {
+      checkout scm
+    }
+    // scmVars = checkout([
+    //   $class: 'GitSCM',
+    //   branches: [[name: "${env.CHANGE_BRANCH}"]],
+    //   extensions: [[$class: 'AuthorInChangelog'],
+    //     [$class: 'CloneOption', honorRefspec: true, noTags: true],
+    //     [$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'],
+    //     [$class: 'LocalBranch', localBranch: 'master']],
+    //   userRemoteConfigs: [[
+    //     credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0',
+    //     name: 'origin',
+    //     refspec: '+refs/heads/master:refs/remotes/origin/master',
+    //     // TODO(tyler-yankee): Replace this with the actual Drake when done testing.
+    //     url: 'git@github.com:ty-drake-jenkins-test/drake.git']]])
   }
   retry(4) {
     checkout([$class: 'GitSCM',
@@ -126,7 +129,7 @@ def doBuild(Map scmVars) {
     file(credentialsId: '912dd413-d419-4760-b7ab-c132ab9e7c5e',
       variable: 'DOCKER_PASSWORD_FILE')
   ]) {
-    withEnv(["GIT_COMMIT=${scmVars.GIT_COMMIT}"]) {
+    withEnv(["GIT_COMMIT=${env.GIT_COMMIT}"]) {
       sh "${env.WORKSPACE}/ci/ctest_driver_script_wrapper.bash"
     }
   }
