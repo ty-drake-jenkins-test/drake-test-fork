@@ -32,8 +32,15 @@ node(getNodeLabel()) {
               scmVars = checkout()
             }
             else {
-              // Use the branch parameters, but still default to master/main.
-              scmVars = checkout("${params.drakeSha}", "${params.ciSha}")
+              // Use the branch parameters if given; otherwise, default to
+              // the GIT_COMMIT for this build for drake;
+              // main for drake-ci.
+              println("Git commit: ${env.GIT_COMMIT}")
+              def drakeSha = "${env.GIT_COMMIT}"
+              if ("${params.drakeSha}" != 'master') {
+                drakeSha = params.drakeSha
+              }
+              scmVars = checkout("${drakeSha}", "${params.ciSha}")
             }
             // Commented now for quick testing.
             // doBuild(scmVars)
