@@ -1,11 +1,6 @@
 // Define the job parameters.
 properties([
     parameters([
-        string(name: 'drakeSha', defaultValue: 'master',
-          description: 'Commit SHA or branch name. ' +
-            'For pull requests, enter branch name <code>pr/1234/head</code> ' +
-            'or <code>pr/1234/merge</code> for pull request #1234. ' +
-            'Defaults to <code>master</code>.'),
         string(name: 'ciSha', defaultValue: 'main',
           description: 'Commit SHA or branch name. ' +
             'For pull requests, enter branch name <code>pr/1234/head</code> ' +
@@ -27,15 +22,13 @@ node(getNodeLabel()) {
           try {
             def scmVars = null
             if (isProduction()) {
-              // Ignore the branch parameters for production builds,
-              // always use master/main.
+              // Ignore the ci branch parameter for production builds,
+              // always use main.
               scmVars = checkout()
             }
             else {
-              // Use the branch parameters if given; otherwise, default to
-              // the GIT_COMMIT for this build for drake;
-              // main for drake-ci.
-              scmVars = checkout("${drakeSha}", "${params.ciSha}")
+              // Use the ci branch parameter (defaults to main).
+              scmVars = checkout("${params.ciSha}")
             }
             // Commented now for quick testing.
             // doBuild(scmVars)
@@ -83,25 +76,15 @@ def isProduction() {
 // in the parameters above.
 // Within the workspace, drake is cloned into `src` and
 // drake-ci is cloned into `ci`.
-def checkout(String drakeSha = 'master', String ciSha = 'main') {
+def checkout(String ciSha = 'main') {
   def scmVars = null
   retry(4) {
-    dir("${env.WORKSPACE}/src") {
-      checkout scm
-    }
-    // scmVars = checkout([
-    //   $class: 'GitSCM',
-    //   branches: [[name: "${env.CHANGE_BRANCH}"]],
-    //   extensions: [[$class: 'AuthorInChangelog'],
-    //     [$class: 'CloneOption', honorRefspec: true, noTags: true],
-    //     [$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'],
-    //     [$class: 'LocalBranch', localBranch: 'master']],
-    //   userRemoteConfigs: [[
-    //     credentialsId: 'ad794d10-9bc8-4a7a-a2f3-998af802cab0',
-    //     name: 'origin',
-    //     refspec: '+refs/heads/master:refs/remotes/origin/master',
-    //     // TODO(tyler-yankee): Replace this with the actual Drake when done testing.
-    //     url: 'git@github.com:ty-drake-jenkins-test/drake.git']]])
+      // Checkout into 'src' with the commit created by the job,
+      // which will be 'master' for production builds or a merge commit
+      // for PR builds.
+      dir("${env.WORKSPACE}/src") {
+        checkout scm
+      }
   }
   retry(4) {
     checkout([$class: 'GitSCM',
@@ -116,6 +99,7 @@ def checkout(String drakeSha = 'master', String ciSha = 'main') {
         refspec: '+refs/heads/main:refs/remotes/origin/main',
         url: 'git@github.com:RobotLocomotion/drake-ci.git']]])
   }
+  println("git commit: ${env.GIT_COMMIT}")
   return scmVars
 }
 
