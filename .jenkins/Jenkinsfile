@@ -11,10 +11,6 @@ properties([
 
 // Define the main pipeline.
 node(getNodeLabel()) {
-  // Use a custom checkout step below, since there are
-  // multiple repositories with a particular directory layout.
-  skipDefaultCheckout()
-
   // Load common functions.
   utils = load("{env.WORKSPACE}/.jenkins/utils.groovy")
   
